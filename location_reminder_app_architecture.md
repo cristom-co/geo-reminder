@@ -1,32 +1,86 @@
-# Arquitectura y Requerimientos — App de Recordatorios por Ubicación para Android
+# Arquitectura y Requerimientos — App de Recordatorios Inteligentes de Bajo Consumo
 
 # Objetivo del Proyecto
 
-Desarrollar una aplicación Android que permita crear recordatorios inteligentes basados en ubicación.
+Desarrollar una aplicación Android de recordatorios contextuales enfocada en:
 
-La aplicación debe:
+- Consumo mínimo de batería
+- Funcionamiento pasivo
+- Recordatorios basados en ubicación aproximada
+- Activación únicamente cuando el usuario use el teléfono
 
-1. Detectar automáticamente cuándo el usuario entra o sale de una zona geográfica.
-2. Mostrar recordatorios contextuales.
-3. Funcionar con bajo consumo de batería.
-4. Operar incluso si la aplicación está cerrada.
-5. Permitir configurar múltiples tipos de activadores.
+La aplicación NO debe utilizar GPS constantemente.
 
 ---
 
-# Problema que Resuelve
+# Filosofía Principal del Proyecto
 
-Muchas tareas dependen del lugar donde se encuentra el usuario.
+## NO usar rastreo continuo
 
-Ejemplos:
+La aplicación NO funcionará como:
 
-- Recordar comprar algo al llegar al supermercado.
-- Recordar sacar basura al salir de casa.
-- Recordar llamar a alguien al llegar al trabajo.
-- Mostrar listas específicas según ubicación.
-- Activar rutinas automáticamente.
+```text
+while(true){
+   obtenerGPS();
+}
+```
 
-Las aplicaciones tradicionales dependen de alarmas por tiempo, no por contexto físico.
+Eso consumiría demasiada batería.
+
+---
+
+# Estrategia Correcta
+
+La aplicación debe aprovechar eventos naturales del sistema Android.
+
+Especialmente:
+
+```text
+Cuando el usuario encienda o desbloquee el teléfono
+```
+
+En ese momento:
+
+1. Android ya suele tener ubicación reciente.
+2. El sistema ya activó sensores.
+3. El costo energético adicional es mínimo.
+
+---
+
+# Idea Central
+
+## Recordatorios contextuales "al despertar el teléfono"
+
+La app funcionará así:
+
+```text
+Usuario desbloquea celular
+        ↓
+La app consulta ubicación reciente
+        ↓
+Se comparan recordatorios cercanos
+        ↓
+Se muestran notificaciones relevantes
+```
+
+Esto evita:
+
+- GPS permanente
+- Servicios agresivos
+- Escaneo constante
+- Alto consumo de batería
+
+---
+
+# Ventajas de Este Enfoque
+
+## Muy bajo consumo energético
+
+Porque:
+
+- No se usa GPS continuo.
+- No hay polling constante.
+- Se aprovecha la ubicación cacheada del sistema.
 
 ---
 
@@ -35,87 +89,133 @@ Las aplicaciones tradicionales dependen de alarmas por tiempo, no por contexto f
 ## Supermercado
 
 ```text
-Cuando llegue al supermercado:
+Cuando abra el celular cerca del supermercado:
 - Comprar arroz
-- Comprar huevos
 - Comprar café
 ```
+
+---
 
 ## Trabajo
 
 ```text
-Al llegar al trabajo:
-- Enviar correo
-- Revisar inventario
+Cuando desbloquee el teléfono en el trabajo:
+- Enviar reporte
 ```
+
+---
 
 ## Casa
 
 ```text
-Al salir de casa:
-- Llevar llaves
-- Apagar luces
+Al usar el celular cerca de casa:
+- Sacar basura
+- Comprar comida para el perro
 ```
 
 ---
 
-# Restricciones Técnicas Android
-
-Android limita:
-
-- Acceso constante al GPS.
-- Ejecución continua en segundo plano.
-- Servicios permanentes.
-- Escaneo frecuente de ubicación.
-
-La aplicación debe minimizar consumo de batería.
-
----
-
-# Estrategia Recomendada
-
-## Geofencing API
-
-Android ofrece APIs oficiales para geocercas.
-
-Permite:
-
-- Detectar entrada/salida de zonas.
-- Bajo consumo energético.
-- Procesamiento optimizado por el sistema.
-
----
-
-# Arquitectura General
+# Arquitectura Recomendada
 
 ```text
-┌─────────────────────────┐
-│ Usuario crea recordatorio│
-└─────────────┬───────────┘
+┌──────────────────────────┐
+│ Usuario desbloquea móvil │
+└─────────────┬────────────┘
               │
               ▼
-┌─────────────────────────┐
-│ Base de datos local     │
-│ Guarda geocercas        │
-└─────────────┬───────────┘
+┌──────────────────────────┐
+│ Broadcast Receiver       │
+│ Detecta SCREEN_ON        │
+└─────────────┬────────────┘
               │
               ▼
-┌─────────────────────────┐
-│ Geofencing Service      │
-│ Monitorea ubicación     │
-└─────────────┬───────────┘
+┌──────────────────────────┐
+│ Location Provider        │
+│ Obtiene última ubicación │
+└─────────────┬────────────┘
               │
               ▼
-┌─────────────────────────┐
-│ Trigger Engine          │
-│ Evalúa eventos          │
-└─────────────┬───────────┘
+┌──────────────────────────┐
+│ Reminder Engine          │
+│ Busca recordatorios      │
+└─────────────┬────────────┘
               │
               ▼
-┌─────────────────────────┐
-│ Sistema de notificaciones│
-└─────────────────────────┘
+┌──────────────────────────┐
+│ Notification System      │
+│ Muestra recordatorios    │
+└──────────────────────────┘
 ```
+
+---
+
+# Eventos Android Recomendados
+
+## SCREEN_ON
+
+Detecta cuando la pantalla se enciende.
+
+## USER_PRESENT
+
+Detecta cuando el usuario desbloquea el teléfono.
+
+---
+
+# Estrategia de Ubicación
+
+## Usar última ubicación conocida
+
+NO solicitar GPS activo constantemente.
+
+Usar:
+
+```text
+FusedLocationProviderClient.getLastLocation()
+```
+
+Esto aprovecha:
+
+- GPS reciente
+- WiFi
+- Torres celulares
+- Datos cacheados del sistema
+
+Con costo energético extremadamente bajo.
+
+---
+
+# Precisión Esperada
+
+## Ubicación aproximada suficiente
+
+La app NO necesita precisión exacta de centímetros.
+
+Ejemplo:
+
+```text
+"Estás cerca del supermercado"
+```
+
+No requiere:
+
+```text
+"Estás exactamente en la puerta"
+```
+
+---
+
+# Estrategia de Distancia
+
+Usar radios relativamente amplios:
+
+| Lugar | Radio recomendado |
+|---|---|
+| Casa | 100 m |
+| Supermercado | 150 m |
+| Centro comercial | 250 m |
+| Trabajo | 150 m |
+
+Esto permite usar ubicación de bajo consumo.
 
 ---
 
@@ -127,177 +227,124 @@ Permite:
 | UI | Jetpack Compose |
 | Persistencia | Room |
 | Ubicación | Fused Location Provider |
-| Geofencing | Android Geofencing API |
 | Arquitectura | Clean Architecture + MVVM |
-| DI | Hilt |
 | Async | Coroutines |
+| DI | Hilt |
 
 ---
 
 # Flujo de Funcionamiento
 
-## 1. Usuario crea recordatorio
+## 1. Usuario desbloquea el teléfono
 
-Ejemplo:
+Android emite:
 
 ```text
-"Comprar café cuando llegue al Éxito"
+USER_PRESENT
 ```
 
 ---
 
-## 2. Usuario selecciona ubicación
+## 2. App obtiene ubicación reciente
 
-Opciones:
-
-- Mapa
-- Ubicación actual
-- Buscar dirección
-
----
-
-## 3. App crea geocerca
-
-La app registra:
+Ejemplo:
 
 ```json
 {
   "latitude": 3.4372,
-  "longitude": -76.5225,
-  "radius": 150
+  "longitude": -76.5225
 }
 ```
 
 ---
 
-## 4. Android monitorea ubicación
+## 3. Motor compara recordatorios
 
-El sistema operativo detecta:
+La app evalúa:
 
-- Entrada
-- Permanencia
-- Salida
-
-Sin usar GPS constantemente.
+```text
+¿Hay recordatorios cerca?
+```
 
 ---
 
-## 5. Se dispara el recordatorio
+## 4. Se muestran recordatorios relevantes
 
 Ejemplo:
 
 ```text
-📍 Estás cerca del supermercado
+📍 Cerca del supermercado
 
 • Comprar café
-• Comprar arroz
+• Comprar huevos
 ```
 
 ---
 
-# Tipos de Activadores
+# Motor de Comparación
 
-## Entrada a zona
+## Fórmula básica
 
 ```text
-Al llegar a:
-- Casa
-- Trabajo
-- Tienda
+Distancia usuario ↔ recordatorio
 ```
 
-## Salida de zona
+Si:
 
 ```text
-Al salir de:
-- Casa
-- Oficina
+distancia <= radio permitido
 ```
 
-## Permanencia
+Entonces:
 
 ```text
-Después de permanecer 15 minutos en:
-- Gimnasio
-- Universidad
+Mostrar recordatorio
 ```
 
 ---
 
-# Configuraciones Avanzadas
+# Estrategia de Optimización
 
-## Horarios
+## Cache temporal
+
+La app puede:
+
+- Evitar múltiples consultas seguidas
+- Reusar ubicación reciente por varios minutos
 
 Ejemplo:
 
 ```text
-Solo activar entre:
-7:00 AM - 7:00 PM
+No volver a consultar ubicación durante 5 minutos
 ```
 
 ---
 
-## Días específicos
+# Sistema Inteligente
 
-```text
-Solo lunes a viernes
-```
+## Priorización
 
----
+Mostrar:
 
-## Repetición
-
-Opciones:
-
-- Una sola vez
-- Diario
-- Semanal
-- Permanente
+- Solo recordatorios cercanos
+- Máximo 3 simultáneamente
+- Los más relevantes primero
 
 ---
 
-# Estrategia de Batería
+# Arquitectura Event-Driven
 
-## NO usar GPS constante
+La app NO debe:
 
-Mala práctica:
+- Ejecutarse constantemente
+- Escuchar GPS continuamente
+- Mantener servicios permanentes
 
-```text
-while(true){
-    obtenerUbicacion();
-}
-```
+La app SOLO reacciona a:
 
-Esto consume demasiada batería.
-
----
-
-# Estrategia Correcta
-
-Usar:
-
-- Geofencing API
-- Eventos del sistema
-- Fused Location Provider
-
-Android optimiza automáticamente:
-
-- GPS
-- WiFi
-- Torres celulares
-- Sensores
-
----
-
-# Arquitectura Recomendada
-
-## Event Driven
-
-La app debe reaccionar únicamente cuando:
-
-- El sistema detecta movimiento relevante.
-- Se entra a una geocerca.
-- Se sale de una geocerca.
+- Encendido de pantalla
+- Desbloqueo
+- Uso normal del teléfono
 
 ---
 
@@ -305,16 +352,45 @@ La app debe reaccionar únicamente cuando:
 
 ```text
 app/
- ├── geofence/
+ ├── receivers/
  ├── reminders/
+ ├── location/
  ├── notifications/
- ├── maps/
  ├── settings/
  ├── domain/
  ├── data/
  ├── ui/
  └── utils/
 ```
+
+---
+
+# Componentes Principales
+
+## receivers/
+
+Detecta eventos Android:
+
+- SCREEN_ON
+- USER_PRESENT
+
+---
+
+## location/
+
+Obtiene última ubicación conocida.
+
+---
+
+## reminders/
+
+Motor de evaluación contextual.
+
+---
+
+## notifications/
+
+Muestra alertas inteligentes.
 
 ---
 
@@ -329,51 +405,46 @@ description
 latitude
 longitude
 radius
-trigger_type
-schedule
+cooldown_minutes
 created_at
 ```
 
 ---
 
-# Tipos de Trigger
+# Cooldown Inteligente
+
+Evitar spam.
+
+Ejemplo:
 
 ```text
-ENTER
-EXIT
-DWELL
+No volver a mostrar el mismo recordatorio
+durante 30 minutos
 ```
-
----
-
-# Notificaciones
-
-La app debe soportar:
-
-- Notificaciones push locales
-- Sonido
-- Vibración
-- Pantalla flotante opcional
-
----
-
-# Integración con Mapas
-
-Opciones:
-
-- Google Maps SDK
-- OpenStreetMap
 
 ---
 
 # Permisos Android
 
 ```xml
-ACCESS_FINE_LOCATION
-ACCESS_BACKGROUND_LOCATION
+ACCESS_COARSE_LOCATION
 POST_NOTIFICATIONS
-FOREGROUND_SERVICE
+RECEIVE_BOOT_COMPLETED
 ```
+
+## Importante
+
+Intentar evitar:
+
+```xml
+ACCESS_BACKGROUND_LOCATION
+```
+
+Porque:
+
+- Consume más batería
+- Genera más restricciones
+- Reduce aceptación del usuario
 
 ---
 
@@ -395,18 +466,18 @@ Android 12+
 
 # Riesgos Técnicos
 
-## Restricciones de batería
+## Fabricantes agresivos
 
-Algunos fabricantes limitan procesos en segundo plano:
+Algunos dispositivos cierran procesos:
 
 - Xiaomi
 - Huawei
 - Oppo
 
-La app debe incluir:
+La app debe:
 
-- Guías de optimización
-- Exclusión de ahorro de batería
+- Reiniciar receptores al boot
+- Mantener arquitectura liviana
 
 ---
 
@@ -417,116 +488,75 @@ La app debe incluir:
 Construir una app que:
 
 - Permita crear recordatorios
-- Cree geocercas
-- Detecte entrada a zonas
-- Muestre notificaciones
+- Detecte desbloqueo del teléfono
+- Consulte última ubicación
+- Muestre recordatorios cercanos
+
+Sin GPS permanente.
 
 ---
 
 # Funciones Futuras
-
-## Clasificación inteligente
-
-Categorías:
-
-- Compras
-- Trabajo
-- Personal
-- Salud
-
----
 
 ## IA contextual
 
 La app aprende:
 
 - Lugares frecuentes
-- Rutinas
-- Horarios habituales
+- Horarios comunes
+- Rutinas del usuario
 
 ---
 
-# Posibles Funciones Avanzadas
+# Posibles Mejoras
 
-## Modo conducción
+## Modo híbrido opcional
 
-Ejemplo:
+Solo si el usuario lo activa:
+
+- Geofencing ligero
+- Mayor precisión
+- Recordatorios automáticos sin desbloqueo
+
+---
+
+# Filosofía Final
+
+## La batería es prioridad absoluta
+
+La app debe sentirse:
 
 ```text
-Mostrar recordatorios relevantes mientras conduces
+Invisible
 ```
 
+Pero útil exactamente en el momento adecuado.
+
 ---
 
-## Integración con voz
-
-Ejemplo:
+# Pipeline Final Recomendado
 
 ```text
-"Recuérdame comprar pan cuando llegue al centro"
-```
-
----
-
-# Consideraciones de Privacidad
-
-La app debe:
-
-- Procesar datos localmente
-- Evitar subir ubicaciones innecesariamente
-- Permitir exportar/eliminar datos
-
----
-
-# Roadmap
-
-## Fase 1
-
-- Geofencing básico
-- Recordatorios simples
-- Notificaciones
-
-## Fase 2
-
-- Mapas interactivos
-- Horarios
-- Repetición
-
-## Fase 3
-
-- IA contextual
-- Integración con voz
-- Automatizaciones
-
----
-
-# Pipeline Recomendado
-
-```text
-User Input
-    ↓
-Location Selection
-    ↓
-Geofence Registration
-    ↓
-Android Geofencing API
-    ↓
-Trigger Detection
-    ↓
-Notification Engine
+SCREEN_ON / USER_PRESENT
+          ↓
+Last Known Location
+          ↓
+Nearby Reminder Search
+          ↓
+Smart Filtering
+          ↓
+Notification
 ```
 
 ---
 
 # Posibles Nombres del Proyecto
 
-- GeoReminder
-- PlacePing
-- SmartReminder
-- ContextNote
-- GeoTasks
-- LocationMemo
-- PlaceAlert
-- NearbyReminder
-- ContextTrigger
-- GeoMind
+- WakeReminder
+- ContextWake
+- GeoWake
+- SmartWakeNotes
+- NearbyMemo
+- UnlockReminder
+- WakeTrigger
+- PassiveReminder
